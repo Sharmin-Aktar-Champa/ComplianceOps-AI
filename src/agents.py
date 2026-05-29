@@ -1,6 +1,8 @@
+import os
 from typing import Annotated, Sequence, TypedDict
 from langchain_core.messages import BaseMessage
-from langchain_community.llms import Ollama
+from langchain_ollama import OllamaLLM
+from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 
 class AgentState(TypedDict):
@@ -52,8 +54,17 @@ class AgentSystemPrompts:
 
 class RegulatoryAgentEngine:
     @staticmethod
-    def get_local_llm(model_name = "llama3"):
-        return Ollama(model = model_name, temperature = 0.2)
+    def get_local_llm(temperature: float = 0.2):
+        provider = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+        
+        if provider == "groq":
+            return ChatGroq(
+                temperature = temperature,
+                model_name = "llama3-70b-8192",
+                groq_api_key = os.getenv("GROQ_API_KEY")
+            )
+            
+        return OllamaLLM(model = "llama3", temperature = temperature)
     
     @staticmethod
     def risk_node(state: AgentState) -> dict:

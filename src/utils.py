@@ -2,8 +2,52 @@ import os
 import urllib.request
 from pypdf import PdfReader
 import io
+from dotenv import load_dotenv
+from langchain_ollama import OllamaLLM
+from langchain_groq import ChatGroq
+
+load_dotenv()
 
 class Utility:
+    _SHARED_LLM_INSTANCE = None
+
+    @classmethod
+    def get_llm(cls) -> object:
+        if cls._SHARED_LLM_INSTANCE is not None:
+            return cls._SHARED_LLM_INSTANCE
+            
+        provider = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+
+        if provider == "groq":
+            try:
+                cls._SHARED_LLM_INSTANCE = ChatGroq(
+                    temperature = 0,
+                    model_name = "llama3-70b-8192",
+                    groq_api_key = os.getenv("GROQ_API_KEY")
+                )
+            except Exception:
+                cls._SHARED_LLM_INSTANCE = OllamaLLM(
+                    model = "llama3",
+                    temperature = 0
+                )
+        else:
+            cls._SHARED_LLM_INSTANCE = OllamaLLM(
+                model = "llama3",
+                temperature = 0
+            )
+        return cls._SHARED_LLM_INSTANCE
+
+    @staticmethod
+    def generate_response(prompt_template, inputs: dict) -> str:
+        llm = Utility.get_llm()
+        chain = prompt_template | llm
+        response = chain.invoke(inputs)
+
+        if hasattr(response, 'content'):
+            return response.content
+        
+        return str(response)
+        
     @staticmethod
     def download_regulatory_pdf(url: str, save_name: str) -> str:
         target_dir = "data"

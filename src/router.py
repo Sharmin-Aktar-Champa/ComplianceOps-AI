@@ -1,23 +1,23 @@
 import numpy as np
 from scipy.stats import entropy
 from langchain_community.vectorstores import FAISS
-from langchain_community.llms import Ollama
+from langchain_core.prompts import ChatPromptTemplate
+from src.utils import Utility
 
 class GatekeeperRouter:
-    _router_llm = Ollama(model="llama3", temperature=0.0)
 
     @classmethod
     def _classify_intent(cls, query: str) -> str:
-        router_prompt = f"""You are an elite Traffic Router Engine. Analyze the user's query and classify it into exactly ONE of two categories:
-        - 'FAST_PATH': If the user is asking for definitions, simple explanations, facts, or basic questions about a single framework (e.g., 'What is NIST?', 'Explain EU AI Act risk levels').
-        - 'DEEP_AUDIT': If the user is asking to compare, contrast, find conflicts, analyze overlaps, or run a deep regulatory audit between multiple frameworks (e.g., 'How does NIST contradict EU AI Act?').
+        ROUTER_PROMPT = ChatPromptTemplate.from_messages([
+            ("system", """You are an elite Traffic Router Engine. Analyze the user's query and classify it into exactly ONE of two categories:
+            - 'FAST_PATH': If the user is asking for definitions, simple explanations, facts, or basic questions about a single framework (e.g., 'What is NIST?', 'Explain EU AI Act risk levels').
+            - 'DEEP_AUDIT': If the user is asking to compare, contrast, find conflicts, analyze overlaps, or run a deep regulatory audit between multiple frameworks (e.g., 'How does NIST contradict EU AI Act?').
+            
+            STRICT RULE: Respond with ONLY ONE WORD, either 'FAST_PATH' or 'DEEP_AUDIT'. Do not write anything else."""),
+            ("human", "User Query: {query}\nCategory:")
+        ])
 
-        STRICT RULE: Respond with ONLY ONE WORD, either 'FAST_PATH' or 'DEEP_AUDIT'. Do not write anything else.
-
-        User Query: {query}
-        Category:"""
-
-        response = cls._router_llm.invoke(router_prompt).strip().upper()
+        response = Utility.generate_response(ROUTER_PROMPT, {"query": query}).strip().upper()
         if "DEEP_AUDIT" in response:
             return "DEEP_AUDIT"
         return "FAST_PATH"

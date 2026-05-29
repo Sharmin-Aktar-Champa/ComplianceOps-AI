@@ -1,17 +1,16 @@
 import time
 from typing import Optional
 from langchain_core.documents import Document
-from langchain_community.llms import Ollama
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
 from src.router import GatekeeperRouter
 from src.graph import ComplianceGraphBuilder
+from src.utils import Utility
 
 class ComplianceEngine:
     
-    def __init__(self, vector_db, fast_path_model="llama3"):
+    def __init__(self, vector_db):
         self.vector_db = vector_db
         self.agent_app = ComplianceGraphBuilder.build_workflow()
-        self.fast_path_llm = Ollama(model=fast_path_model, temperature=0.1)
 
     def _execute_fast_path_inference(self, best_node: Optional[Document], query) -> str:
         if not best_node:
@@ -19,16 +18,22 @@ class ComplianceEngine:
         
         source_file: str = best_node.metadata.get("source", "Unknown Law")
         page_num: str = best_node.metadata.get("page", "N/A")
-        fast_prompt: str = (
-            f"You are a helpful Regulatory Assistant. Provide a direct, clear, and "
-            f"concise answer based strictly on the provided context.\n\n"
-            f"Context (Source: {source_file}, Page: {page_num}):\n{best_node.page_content}"
-        )
-        messages = [
-            SystemMessage(content=fast_prompt),
-            HumanMessage(content=query)
-        ]
-        return self.fast_path_llm.invoke(messages)
+
+        FAST_PATH_PROMPT = ChatPromptTemplate.from_messages([
+            ("system", "You are a helpful Regulatory Assistant. Provide a direct, clear, and "
+                       "concise answer based strictly on the provided context.\n\n"
+                       "Context (Source: {source_file}, Page: {page_num}):\n{context}"),
+            ("human", "{query}")
+        ])
+        
+        inputs = {
+            "source_file": source_file,
+            "page_num": page_num,
+            "context": best_node.page_content,
+            "query": query
+        }
+        
+        return Utility.generate_response(FAST_PATH_PROMPT, inputs)
             
     def run(self, query: str) -> dict:
         start_time = time.time()

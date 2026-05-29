@@ -3,3 +3,7 @@ scipy
 numpy
 langchain-community
 langchain-core
+langchain-ollama
+langchain-groq
+langchain-huggingface
+ipywidgets
