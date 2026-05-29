@@ -7,3 +7,7 @@ langchain-ollama
 langchain-groq
 langchain-huggingface
 ipywidgets
+fastapi 
+uvicorn 
+streamlit 
+requests
