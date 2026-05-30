@@ -1,11 +1,17 @@
 pypdf
 scipy
 numpy
+
+sentence-transformers
+faiss-cpu
+
 langchain-community
 langchain-core
 langchain-ollama
 langchain-groq
 langchain-huggingface
+langgraph
+
 ipywidgets
 fastapi 
 uvicorn 

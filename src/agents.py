@@ -1,5 +1,5 @@
 import os
-from typing import Annotated, Sequence, TypedDict
+from typing import Annotated, Sequence, TypedDict, Any
 from langchain_core.messages import BaseMessage
 from langchain_ollama import OllamaLLM
 from langchain_groq import ChatGroq
@@ -56,77 +56,66 @@ class RegulatoryAgentEngine:
     @staticmethod
     def get_local_llm(temperature: float = 0.2):
         provider = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
-        
         if provider == "groq":
             return ChatGroq(
                 temperature = temperature,
-                model_name = "llama3-70b-8192",
+                model_name = os.getenv("GROQ_MODEL","llama-3.1-8b-instant"),
                 groq_api_key = os.getenv("GROQ_API_KEY")
             )
-            
-        return OllamaLLM(model = "llama3", temperature = temperature)
-    
-    @staticmethod
-    def risk_node(state: AgentState) -> dict:
-        llm = RegulatoryAgentEngine.get_local_llm()
+        return OllamaLLM(model = os.getenv("OLLAMA_MODEL","llama3"), temperature = temperature)
 
+    @staticmethod
+    def build_prompt_context(state: AgentState) -> str:
         content_list = []
         for doc in state["retrieved_context"]:
             source = doc.metadata.get("source", "Unknown Law")
             page = doc.metadata.get("page", "Unknown Page")
             content_list.append(f"--- SOURCE: {source} (Page {page}) ---\n{doc.page_content}\n")
-            
         context_text = "\n\n".join(content_list)
+        
         prompt = f"Context from Regulatory Docs:\n{context_text}\n\nUser Query: {state['current_query']}"
+        return prompt
 
+    @staticmethod
+    def filter_response(response: Any) -> str:
+        if hasattr(response, 'content'):
+            return response.content
+        return str(response)
+    
+    @staticmethod
+    def risk_node(state: AgentState) -> dict:
+        llm = RegulatoryAgentEngine.get_local_llm()
+        prompt = RegulatoryAgentEngine.build_prompt_context(state)
+        
         messages = [
             SystemMessage(content = AgentSystemPrompts.RISK_AGENT),
             HumanMessage(content = prompt)
         ]
-        response = llm.invoke(messages)
+        response = RegulatoryAgentEngine.filter_response(llm.invoke(messages))
         return {"risk_report": response}
 
     @staticmethod
     def compliance_node(state: AgentState) -> dict:
         llm = RegulatoryAgentEngine.get_local_llm()
-
-        content_list = []
-        for doc in state["retrieved_context"]:
-            source = doc.metadata.get("source", "Unknown Law")
-            page = doc.metadata.get("page", "Unknown Page")
-            content_list.append(f"--- SOURCE: {source} (Page {page}) ---\n{doc.page_content}\n")
-            
-        context_text = "\n\n".join(content_list)
-        prompt = f"Context from Regulatory Docs:\n{context_text}\n\nUser Query:{state['current_query']}"
+        prompt = RegulatoryAgentEngine.build_prompt_context(state)
 
         messages = [
             SystemMessage(content = AgentSystemPrompts.COMPLIANCE_AGENT),
             HumanMessage(content = prompt)
         ]
-
-        response = llm.invoke(messages)
-        
+        response = RegulatoryAgentEngine.filter_response(llm.invoke(messages))
         return {"compliance_report": response}
             
     @staticmethod
     def contradiction_node(state: AgentState) -> dict:
         llm = RegulatoryAgentEngine.get_local_llm()
-
-        content_list = []
-        for doc in state["retrieved_context"]:
-            source = doc.metadata.get("source", "Unknown Law")
-            page = doc.metadata.get("page", "Unknown Page")
-            content_list.append(f"--- SOURCE: {source} (Page {page}) ---\n{doc.page_content}\n")
-            
-        context_text = "\n\n".join(content_list)
-        prompt = f"Context from Regulatory Docs:\n{context_text}\n\nUser Query:{state['current_query']}"
+        prompt = RegulatoryAgentEngine.build_prompt_context(state)
 
         messages = [
             SystemMessage(content= AgentSystemPrompts.CONTRADICTION_AGENT),
             HumanMessage(content = prompt)
         ]
-        
-        response = llm.invoke(messages)
+        response = RegulatoryAgentEngine.filter_response(llm.invoke(messages))
         return {"contradiction_report": response}
 
     @staticmethod
@@ -145,13 +134,13 @@ class RegulatoryAgentEngine:
         3. Contradiction Analysis:
         {state['contradiction_report']}
         """
+        
         messages = [
             SystemMessage(content = AgentSystemPrompts.SUPERVISOR),
             HumanMessage(content = compiled_report)
         ]
-        
         response = llm.invoke(messages)
-        
+        response = RegulatoryAgentEngine.filter_response(response)
         return {"final_compiled_report": response}
             
             

@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import requests
 
@@ -6,7 +7,9 @@ user_query = st.text_input("Enter query")
 
 if st.button("Check Compliance"):
     if user_query:
-        url = "http://127.0.0.1:8000/query"
+        backend_base_url = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+        url = f"{backend_base_url}/query"
+        
         payload = {"query": user_query}
         response = requests.post(url, json = payload)
         if response.status_code == 200:

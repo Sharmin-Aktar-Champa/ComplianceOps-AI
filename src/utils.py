@@ -22,17 +22,17 @@ class Utility:
             try:
                 cls._SHARED_LLM_INSTANCE = ChatGroq(
                     temperature = 0,
-                    model_name = "llama3-70b-8192",
+                    model_name = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
                     groq_api_key = os.getenv("GROQ_API_KEY")
                 )
             except Exception:
                 cls._SHARED_LLM_INSTANCE = OllamaLLM(
-                    model = "llama3",
+                    model = os.getenv("OLLAMA_MODEL", "llama3"),
                     temperature = 0
                 )
         else:
             cls._SHARED_LLM_INSTANCE = OllamaLLM(
-                model = "llama3",
+                model = os.getenv("OLLAMA_MODEL", "llama3"),
                 temperature = 0
             )
         return cls._SHARED_LLM_INSTANCE
