@@ -1,11 +1,23 @@
+import os
+from typing import AsyncIterator
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import BaseModel
 from src.pipeline import ComplianceEngine
 from src.vector_store import VectorStoreManager
+from src.ingest import build_vector_db, DB_FAISS_PATH
 
-app = FastAPI(title="ComplianceOps AI Backend")
-loaded_db = VectorStoreManager.load_local_vector_store("data/regulatory_faiss")
-pipeline = ComplianceEngine(vector_db=loaded_db)
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if not os.path.exists(DB_FAISS_PATH):
+        loaded_db = build_vector_db()
+    else:
+        loaded_db = VectorStoreManager.load_local_vector_store(DB_FAISS_PATH)
+    pipeline = ComplianceEngine(vector_db = loaded_db)
+    app.state.pipeline = pipeline
+    yield
+    
+app = FastAPI(title="ComplianceOps AI Backend", lifespan = lifespan)
 
 class QueryRequest(BaseModel):
     query: str
@@ -22,7 +34,7 @@ def home():
 
 @app.post("/query", response_model = QueryResponse)
 def analyze_query(request: QueryRequest):
-    result = pipeline.run(request.query)
+    result = app.state.pipeline.run(request.query)
     return {
         "status": "success",
         "answer": result.get("output", "No response generated"),
